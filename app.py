@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import xgboost as xgb
 import shap
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
@@ -109,9 +108,30 @@ with col1:
         st.success(f"Low Risk of Heart Disease detected. (Confidence: {1 - proba:.2%})")
 
 with col2:
-    st.subheader("Local Patient Explanation (SHAP Waterfall)")
+    st.subheader("Written Diagnostic Explanation")
     explainer = shap.Explainer(model)
     shap_values = explainer(patient_scaled)
-    fig, ax = plt.subplots(figsize=(8, 6))
-    shap.plots.waterfall(shap_values[0], show=False)
-    st.pyplot(fig)
+    
+    vals = shap_values.values[0]
+    feature_names = X.columns
+    
+    explanation_df = pd.DataFrame({
+        'Feature': feature_names,
+        'Value': [inputs[f] for f in feature_names],
+        'Impact': vals
+    }).sort_values(by='Impact', key=abs, ascending=False)
+    
+    st.write("Below is the written breakdown of how each vital factor influenced this prediction:")
+    
+    risk_increasing = explanation_df[explanation_df['Impact'] > 0]
+    risk_decreasing = explanation_df[explanation_df['Impact'] < 0]
+    
+    if not risk_increasing.empty:
+        st.markdown("### Factors Increasing Heart Disease Risk:")
+        for idx, row in risk_increasing.iterrows():
+            st.markdown(f"* **{row['Feature']}** (Patient Value: `{row['Value']}`): Pushed risk **UP** by +{row['Impact']:.2f}")
+            
+    if not risk_decreasing.empty:
+        st.markdown("### Factors Decreasing Heart Disease Risk:")
+        for idx, row in risk_decreasing.iterrows():
+            st.markdown(f"* **{row['Feature']}** (Patient Value: `{row['Value']}`): Pulled risk **DOWN** by {row['Impact']:.2f}")
