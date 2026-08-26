@@ -8,6 +8,22 @@ from sklearn.model_selection import train_test_split
 
 st.set_page_config(page_title="MedExplain Diagnostic Dashboard", layout="wide")
 
+FEATURE_MAP = {
+    'age': 'Age (Years)',
+    'sex': 'Biological Sex',
+    'cp': 'Chest Pain Type',
+    'trestbps': 'Resting Blood Pressure (mm Hg)',
+    'chol': 'Serum Cholesterol (mg/dl)',
+    'fbs': 'Fasting Blood Sugar (> 120 mg/dl)',
+    'restecg': 'Resting ECG Results',
+    'thalach': 'Max Heart Rate Achieved (bpm)',
+    'exang': 'Exercise Induced Angina',
+    'oldpeak': 'ST Depression (Oldpeak)',
+    'slope': 'Slope of Peak Exercise ST Segment',
+    'ca': 'Major Vessels Colored by Fluoroscopy',
+    'thal': 'Thalassemia Result'
+}
+
 @st.cache_data
 def load_and_prep_data():
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data"
@@ -113,10 +129,11 @@ with col2:
     shap_values = explainer(patient_scaled)
     
     vals = shap_values.values[0]
+    base_value = shap_values.base_values[0]
     feature_names = X.columns
     
     explanation_df = pd.DataFrame({
-        'Feature': feature_names,
+        'Feature': [FEATURE_MAP[f] for f in feature_names],
         'Value': [inputs[f] for f in feature_names],
         'Impact': vals
     }).sort_values(by='Impact', key=abs, ascending=False)
@@ -135,3 +152,20 @@ with col2:
         st.markdown("### Factors Decreasing Heart Disease Risk:")
         for idx, row in risk_decreasing.iterrows():
             st.markdown(f"* **{row['Feature']}** (Patient Value: `{row['Value']}`): Pulled risk **DOWN** by {row['Impact']:.2f}")
+
+    st.markdown("---")
+    st.subheader("Mathematical Calculation of Risk Score")
+    
+    total_positive = risk_increasing['Impact'].sum()
+    total_negative = risk_decreasing['Impact'].sum()
+    final_log_odds = base_value + total_positive + total_negative
+    calc_proba = 1 / (1 + np.exp(-final_log_odds))
+    
+    st.latex(r"f(x) = \text{Base Value} + \sum \text{Impacts}")
+    st.write(f"1. **Average Base Risk (Log-Odds):** `{base_value:.4f}`")
+    st.write(f"2. **Total Risk Added (+):** `{total_positive:+.4f}`")
+    st.write(f"3. **Total Risk Reduced (-):** `{total_negative:+.4f}`")
+    st.write(f"4. **Final Score f(x):** `{base_value:.4f} + ({total_positive:+.4f}) + ({total_negative:+.4f}) = {final_log_odds:.4f}`")
+    
+    st.latex(r"\text{Probability} = \frac{1}{1 + e^{-f(x)}}")
+    st.write(f"5. **Converted Probability:** `1 / (1 + e^(-({final_log_odds:.4f}))) = {calc_proba:.2%}`")
