@@ -37,10 +37,61 @@ model.fit(X_train_scaled, y_train)
 st.title("MedExplain: Clinical Decision Support & XAI Dashboard")
 st.markdown("Interactive diagnostic prediction engine powered by XGBoost and SHAP.")
 
-st.sidebar.header("Patient Vital Indicators")
-inputs = {}
-for col in X.columns:
-    inputs[col] = st.sidebar.number_input(f"{col}", float(df[col].min()), float(df[col].max()), float(df[col].mean()))
+st.sidebar.header("Patient Vitals & Clinical Indicators")
+
+age = st.sidebar.number_input("Age (Years)", min_value=1, max_value=120, value=55)
+
+sex_option = st.sidebar.selectbox("Sex", options=["Female", "Male"], index=1)
+sex = 1 if sex_option == "Male" else 0
+
+cp_option = st.sidebar.selectbox(
+    "Chest Pain Type (CP)", 
+    options=["0: Typical Angina", "1: Atypical Angina", "2: Non-Anginal Pain", "3: Asymptomatic"],
+    index=3
+)
+cp = int(cp_option.split(":")[0])
+
+trestbps = st.sidebar.number_input("Resting Blood Pressure (mm Hg)", min_value=80, max_value=220, value=130)
+chol = st.sidebar.number_input("Serum Cholesterol (mg/dl)", min_value=100, max_value=600, value=240)
+
+fbs_option = st.sidebar.selectbox("Fasting Blood Sugar > 120 mg/dl", options=["No (False)", "Yes (True)"], index=0)
+fbs = 1 if "Yes" in fbs_option else 0
+
+restecg_option = st.sidebar.selectbox(
+    "Resting ECG Results", 
+    options=["0: Normal", "1: ST-T Wave Abnormality", "2: Left Ventricular Hypertrophy"],
+    index=0
+)
+restecg = int(restecg_option.split(":")[0])
+
+thalach = st.sidebar.number_input("Max Heart Rate Achieved (bpm)", min_value=60, max_value=220, value=150)
+
+exang_option = st.sidebar.selectbox("Exercise Induced Angina", options=["No", "Yes"], index=0)
+exang = 1 if exang_option == "Yes" else 0
+
+oldpeak = st.sidebar.number_input("ST Depression (Oldpeak)", min_value=0.0, max_value=10.0, value=1.0, step=0.1)
+
+slope_option = st.sidebar.selectbox(
+    "Slope of Peak Exercise ST Segment", 
+    options=["1: Upsloping", "2: Flat", "3: Downsloping"],
+    index=0
+)
+slope = int(slope_option.split(":")[0])
+
+ca = st.sidebar.selectbox("Major Vessels Colored by Fluoroscopy (0-3)", options=[0, 1, 2, 3], index=0)
+
+thal_option = st.sidebar.selectbox(
+    "Thalassemia (Thal)", 
+    options=["3: Normal", "6: Fixed Defect", "7: Reversible Defect"],
+    index=0
+)
+thal = int(thal_option.split(":")[0])
+
+inputs = {
+    'age': age, 'sex': sex, 'cp': cp, 'trestbps': trestbps, 'chol': chol,
+    'fbs': fbs, 'restecg': restecg, 'thalach': thalach, 'exang': exang,
+    'oldpeak': oldpeak, 'slope': slope, 'ca': ca, 'thal': thal
+}
 
 patient_df = pd.DataFrame([inputs])
 patient_scaled = pd.DataFrame(scaler.transform(patient_df), columns=X.columns)
@@ -51,7 +102,7 @@ with col1:
     st.subheader("Diagnostic Prediction")
     prediction = model.predict(patient_scaled)[0]
     proba = model.predict_proba(patient_scaled)[0][1]
-
+    
     if prediction == 1:
         st.error(f"High Risk of Heart Disease detected. (Confidence: {proba:.2%})")
     else:
