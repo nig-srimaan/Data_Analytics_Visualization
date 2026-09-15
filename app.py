@@ -56,7 +56,7 @@ if st.button("Analyze My Symptoms", type="primary"):
     else:
         api_key = st.secrets["GEMINI_API_KEY"]
         genai.configure(api_key=api_key)
-        generative_model = genai.GenerativeModel('gemini-1.5-flash')
+        generative_model = genai.GenerativeModel('gemini-2.5-flash')
         
         prompt = f"""
         You are a medical data extractor. Read the following patient symptoms and extract the clinical parameters.
