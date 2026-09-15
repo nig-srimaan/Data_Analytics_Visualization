@@ -67,10 +67,18 @@ if st.button("Analyze My Symptoms", type="primary"):
         "thalach_est": integer (estimate a heart rate: 150 for normal, 180 if they mention racing/pounding/palpitations)
         """
         
+        safe_config = {
+            'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
+            'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
+            'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+            'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE'
+        }
+
         try:
             response = generative_model.generate_content(
                 prompt,
-                generation_config={"response_mime_type": "application/json"}
+                generation_config={"response_mime_type": "application/json"},
+                safety_settings=safe_config
             )
             extracted_data = json.loads(response.text)
             cp = extracted_data.get("cp", 3)
@@ -78,7 +86,6 @@ if st.button("Analyze My Symptoms", type="primary"):
             thalach_est = extracted_data.get("thalach_est", 150)
         except Exception as e:
             st.error(f"API Error: {e}")
-            st.info("If this says 'ValueError', Gemini blocked the prompt due to safety filters.")
             st.stop()
 
         inputs = {
@@ -119,13 +126,25 @@ if st.button("Analyze My Symptoms", type="primary"):
             
             try:
                 text_model = genai.GenerativeModel('gemini-2.5-flash')
-                advice_response = text_model.generate_content(advice_prompt)
+                advice_response = text_model.generate_content(
+                    advice_prompt,
+                    safety_settings=safe_config
+                )
                 
-                if not advice_response.text or advice_response.text.strip() == "":
-                    raise ValueError("Empty response generated")
-                    
-                st.write(advice_response.text)
-                
+                final_text = ""
+                try:
+                    final_text = advice_response.text.strip()
+                except ValueError:
+                    final_text = ""
+
+                if final_text != "":
+                    st.write(final_text)
+                else:
+                    if prediction == 1:
+                        st.write("Your symptoms indicate some elevated cardiovascular risk. Please consult a doctor soon for a professional checkup.")
+                    else:
+                        st.write("Your symptoms do not strongly match acute cardiovascular disease. However, if you feel unwell, it is always best to rest and consult a doctor if things do not improve.")
+                        
             except Exception:
                 if prediction == 1:
                     st.write("Your symptoms indicate some elevated cardiovascular risk. Please consult a doctor soon for a professional checkup.")
