@@ -4,4 +4,4 @@ numpy
 scikit-learn
 xgboost
 shap
-matplotlib
+google-generativeai
