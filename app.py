@@ -4,12 +4,27 @@ import numpy as np
 import xgboost as xgb
 import shap
 import json
-import matplotlib.pyplot as plt
 import google.generativeai as genai
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
 st.set_page_config(page_title="MedExplain Natural Symptom Engine", layout="wide")
+
+FEATURE_MAP = {
+    'age': 'Age',
+    'sex': 'Biological Sex',
+    'cp': 'Chest Pain Type',
+    'trestbps': 'Blood Pressure Baseline',
+    'chol': 'Cholesterol Baseline',
+    'fbs': 'Blood Sugar Baseline',
+    'restecg': 'ECG Baseline',
+    'thalach': 'Heart Rate',
+    'exang': 'Exercise Triggered Pain',
+    'oldpeak': 'ST Depression Baseline',
+    'slope': 'ST Segment Slope Baseline',
+    'ca': 'Major Vessels Baseline',
+    'thal': 'Thalassemia Baseline'
+}
 
 @st.cache_data
 def load_heart_data():
@@ -69,7 +84,6 @@ if st.button("Analyze My Symptoms", type="primary"):
         """
         
         try:
-            # Force Gemini to return ONLY valid JSON
             response = generative_model.generate_content(
                 prompt,
                 generation_config={"response_mime_type": "application/json"}
@@ -86,7 +100,6 @@ if st.button("Analyze My Symptoms", type="primary"):
             st.info("If this says 'ValueError', Gemini blocked the prompt due to safety filters.")
             st.stop()
 
-        # Build patient profile with extracted data and healthy baselines
         inputs = {
             'age': age, 'sex': sex, 'cp': cp, 'trestbps': 120, 'chol': 190,
             'fbs': 0, 'restecg': 0, 'thalach': thalach_est, 'exang': exang,
@@ -118,11 +131,34 @@ if st.button("Analyze My Symptoms", type="primary"):
             st.write(f"- **Estimated Heart Rate:** {thalach_est} bpm")
             
         with res_col2:
-            st.subheader("Explainable AI (SHAP) Breakdown")
+            st.subheader("Why did the AI decide this?")
             explainer = shap.Explainer(model)
             shap_values = explainer(patient_scaled)
             
-            # Matplotlib configuration for Streamlit compatibility
-            fig, ax = plt.subplots(figsize=(6, 4))
-            shap.plots.waterfall(shap_values[0], show=False)
-            st.pyplot(fig)
+            vals = shap_values.values[0]
+            feature_names = X.columns
+            
+            explanation_df = pd.DataFrame({
+                'Feature': [FEATURE_MAP[f] for f in feature_names],
+                'Impact': vals
+            }).sort_values(by='Impact', key=abs, ascending=False)
+            
+            risk_increasing = explanation_df[explanation_df['Impact'] > 0].head(4)
+            risk_decreasing = explanation_df[explanation_df['Impact'] < 0].head(4)
+            
+            st.write("Here are the top factors that influenced your results:")
+            
+            if not risk_increasing.empty:
+                st.markdown("🔴 **Increased your risk:**")
+                for _, row in risk_increasing.iterrows():
+                    st.write(f"- {row['Feature']}")
+                    
+            st.write("")
+                    
+            if not risk_decreasing.empty:
+                st.markdown("🟢 **Kept your risk low:**")
+                for _, row in risk_decreasing.iterrows():
+                    st.write(f"- {row['Feature']}")
+                    
+            st.markdown("---")
+            st.info("The AI compares your symptoms and age against historical medical baselines to determine these factors.")
