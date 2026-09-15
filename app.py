@@ -7,6 +7,46 @@ import google.generativeai as genai
 
 st.set_page_config(page_title="MedExplain Natural Symptom Engine", layout="wide")
 
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');
+
+html, body, [class*="css"]  { font-family: 'Inter', sans-serif; }
+
+h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #20242A;
+}
+
+hr { border: none; border-top: 1px solid #D8DCD5; margin: 1.6rem 0; }
+
+.stButton > button[kind="primary"] {
+    background-color: #B54A3F;
+    border: none;
+    border-radius: 6px;
+    padding: 0.55rem 1.4rem;
+    font-weight: 500;
+}
+.stButton > button[kind="primary"]:hover { background-color: #9A3E34; }
+
+.clarify-panel {
+    border-left: 3px solid #B54A3F;
+    padding: 0.9rem 1.2rem;
+    background-color: #EAEDE8;
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 1.2rem;
+}
+
+.risk-panel { border-radius: 10px; padding: 1.8rem 1.6rem; color: #F7F8F5; }
+.risk-elevated { background-color: #B54A3F; }
+.risk-low { background-color: #3E6A57; }
+.risk-number { font-family: 'Fraunces', serif; font-size: 3rem; font-weight: 600; line-height: 1; }
+.risk-label { font-size: 1.05rem; margin-top: 0.3rem; opacity: 0.92; }
+</style>
+""", unsafe_allow_html=True)
+
 # ---------------------------------------------------------------------------
 # 1. DATA
 # The UCI heart-disease repository actually has FOUR sources that share the
@@ -199,7 +239,11 @@ if st.session_state.stage in ("clarify", "result"):
 if st.session_state.stage == "clarify":
     st.markdown("---")
     st.subheader("A couple more details")
-    st.caption("The AI couldn't tell these from your description - answer what you can, skip what you don't know.")
+    st.markdown(
+        '<div class="clarify-panel">The AI couldn\'t tell these from your description - '
+        'answer what you can, skip what you don\'t know.</div>',
+        unsafe_allow_html=True,
+    )
 
     with st.form("clarify_form"):
         cp = extracted.get("cp")
@@ -278,9 +322,19 @@ if st.session_state.stage == "result":
     with res_col1:
         st.subheader("Clinical Result")
         if prediction == 1:
-            st.error(f"Elevated Risk ({proba:.1%} Confidence)")
+            st.markdown(
+                f'<div class="risk-panel risk-elevated">'
+                f'<div class="risk-number">{proba:.0%}</div>'
+                f'<div class="risk-label">Elevated Risk</div></div>',
+                unsafe_allow_html=True,
+            )
         else:
-            st.success(f"Low Risk ({(1 - proba):.1%} Confidence)")
+            st.markdown(
+                f'<div class="risk-panel risk-low">'
+                f'<div class="risk-number">{(1 - proba):.0%}</div>'
+                f'<div class="risk-label">Low Risk</div></div>',
+                unsafe_allow_html=True,
+            )
 
     with res_col2:
         st.subheader("What this means for you")
