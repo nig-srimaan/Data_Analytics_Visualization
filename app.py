@@ -2,29 +2,12 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import xgboost as xgb
-import shap
 import json
 import google.generativeai as genai
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
 st.set_page_config(page_title="MedExplain Natural Symptom Engine", layout="wide")
-
-FEATURE_MAP = {
-    'age': 'Age',
-    'sex': 'Biological Sex',
-    'cp': 'Chest Pain Type',
-    'trestbps': 'Blood Pressure Baseline',
-    'chol': 'Cholesterol Baseline',
-    'fbs': 'Blood Sugar Baseline',
-    'restecg': 'ECG Baseline',
-    'thalach': 'Heart Rate',
-    'exang': 'Exercise Triggered Pain',
-    'oldpeak': 'ST Depression Baseline',
-    'slope': 'ST Segment Slope Baseline',
-    'ca': 'Major Vessels Baseline',
-    'thal': 'Thalassemia Baseline'
-}
 
 @st.cache_data
 def load_heart_data():
@@ -88,13 +71,10 @@ if st.button("Analyze My Symptoms", type="primary"):
                 prompt,
                 generation_config={"response_mime_type": "application/json"}
             )
-            
             extracted_data = json.loads(response.text)
-            
             cp = extracted_data.get("cp", 3)
             exang = extracted_data.get("exang", 0)
             thalach_est = extracted_data.get("thalach_est", 150)
-            
         except Exception as e:
             st.error(f"API Error: {e}")
             st.info("If this says 'ValueError', Gemini blocked the prompt due to safety filters.")
@@ -114,51 +94,36 @@ if st.button("Analyze My Symptoms", type="primary"):
         
         st.markdown("---")
         
-        res_col1, res_col2 = st.columns(2)
+        res_col1, res_col2 = st.columns([1, 2])
         
         with res_col1:
-            st.subheader("Diagnostic Engine Output")
+            st.subheader("Clinical Result")
             if prediction == 1:
-                st.error(f"High Risk Detected ({proba:.1%} Confidence)")
-                st.write("**Next Steps:** Based on your description, please consult a healthcare professional.")
+                st.error(f"Elevated Risk ({proba:.1%} Confidence)")
             else:
-                st.success(f"Low Risk Detected ({(1 - proba):.1%} Confidence)")
-                st.write("**Next Steps:** Your symptoms do not strongly align with acute cardiovascular baselines.")
+                st.success(f"Low Risk ({(1 - proba):.1%} Confidence)")
                 
-            st.markdown("### How the AI Interpreted Your Text:")
-            st.write(f"- **Chest Pain Category:** {cp} (0=Typical/High Risk, 1=Atypical, 2=Non-Anginal, 3=None)")
-            st.write(f"- **Exercise Triggered:** {'Yes' if exang == 1 else 'No'}")
-            st.write(f"- **Estimated Heart Rate:** {thalach_est} bpm")
-            
         with res_col2:
-            st.subheader("Why did the AI decide this?")
-            explainer = shap.Explainer(model)
-            shap_values = explainer(patient_scaled)
+            st.subheader("What this means for you")
             
-            vals = shap_values.values[0]
-            feature_names = X.columns
+            advice_prompt = f"""
+            You are an empathetic, human health assistant.
+            The patient said: "{user_symptoms}"
+            The clinical model predicted: {'Elevated Risk of Heart Issues' if prediction == 1 else 'Low Risk of Heart Issues'}.
             
-            explanation_df = pd.DataFrame({
-                'Feature': [FEATURE_MAP[f] for f in feature_names],
-                'Impact': vals
-            }).sort_values(by='Impact', key=abs, ascending=False)
+            Write a 3-paragraph response directly to the patient. 
+            Paragraph 1: Acknowledge their specific symptoms so they feel heard.
+            Paragraph 2: Explain what the result means and whether they should be worried in plain, comforting English.
+            Paragraph 3: Give 2-3 practical, actionable pieces of advice for what to do next.
             
-            risk_increasing = explanation_df[explanation_df['Impact'] > 0].head(4)
-            risk_decreasing = explanation_df[explanation_df['Impact'] < 0].head(4)
+            Do not use medical jargon. Do not list raw data. Speak to them like a caring human being.
+            """
             
-            st.write("Here are the top factors that influenced your results:")
-            
-            if not risk_increasing.empty:
-                st.markdown("🔴 **Increased your risk:**")
-                for _, row in risk_increasing.iterrows():
-                    st.write(f"- {row['Feature']}")
-                    
-            st.write("")
-                    
-            if not risk_decreasing.empty:
-                st.markdown("🟢 **Kept your risk low:**")
-                for _, row in risk_decreasing.iterrows():
-                    st.write(f"- {row['Feature']}")
-                    
-            st.markdown("---")
-            st.info("The AI compares your symptoms and age against historical medical baselines to determine these factors.")
+            try:
+                advice_response = generative_model.generate_content(advice_prompt)
+                st.write(advice_response.text)
+            except:
+                if prediction == 1:
+                    st.write("Your symptoms indicate some elevated cardiovascular risk. Please consult a doctor soon for a professional checkup.")
+                else:
+                    st.write("Your symptoms do not strongly match acute cardiovascular disease. However, if you feel unwell, it is always best to rest and consult a doctor if things do not improve.")
