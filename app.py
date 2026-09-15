@@ -3,11 +3,12 @@ import pandas as pd
 import numpy as np
 import xgboost as xgb
 import shap
-import re
+import json
+import google.generativeai as genai
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
-st.set_page_config(page_title="MedExplain Natural Symptom Engine", layout="wide")
+st.set_page_config(page_title="MedExplain LLM Engine", layout="wide")
 
 @st.cache_data
 def load_heart_data():
@@ -31,8 +32,10 @@ X_train_scaled = pd.DataFrame(scaler.fit_transform(X_train), columns=X.columns)
 model = xgb.XGBClassifier(use_label_encoder=False, eval_metric='logloss')
 model.fit(X_train_scaled, y_train)
 
-st.title("MedExplain: Natural Language Symptom Checker")
+st.title("MedExplain: AI-Powered Symptom Checker")
 st.markdown("Describe how you are feeling in plain English, and the AI will analyze your risk.")
+
+api_key = st.sidebar.text_input("Enter Gemini API Key to Activate LLM", type="password")
 
 col1, col2 = st.columns([1, 2])
 
@@ -49,24 +52,36 @@ with col2:
     )
 
 if st.button("Analyze My Symptoms", type="primary"):
-    if not user_symptoms.strip():
+    if not api_key:
+        st.warning("Please enter a valid Gemini API Key in the sidebar.")
+    elif not user_symptoms.strip():
         st.warning("Please describe how you are feeling before analyzing.")
     else:
-        text = user_symptoms.lower()
+        genai.configure(api_key=api_key)
+        generative_model = genai.GenerativeModel('gemini-1.5-flash')
         
-        cp = 3
-        if re.search(r"chest.*(pain|tight|heavy|pressure|hurt|squeeze)", text):
-            cp = 0
-        elif re.search(r"sharp|flank|discomfort", text):
-            cp = 1
+        prompt = f"""
+        You are a medical data extractor. Read the following patient symptoms and extract the clinical parameters.
+        Patient Text: '{user_symptoms}'
+        
+        Return ONLY a raw JSON object with no markdown formatting. The keys must be:
+        "cp": integer (0 for typical angina/severe chest pain, 1 for atypical, 2 for non-anginal, 3 for asymptomatic/none)
+        "exang": integer (1 if exercise or movement induces pain, 0 if not)
+        "thalach_est": integer (estimate a heart rate: 150 for normal, 180 if they mention racing/pounding/palpitations)
+        """
+        
+        try:
+            response = generative_model.generate_content(prompt)
+            clean_json = response.text.strip().replace("```json", "").replace("```", "")
+            extracted_data = json.loads(clean_json)
             
-        exang = 0
-        if re.search(r"(exercise|walk|run|stairs|activity|effort|workout)", text) and cp != 3:
-            exang = 1
+            cp = extracted_data.get("cp", 3)
+            exang = extracted_data.get("exang", 0)
+            thalach_est = extracted_data.get("thalach_est", 150)
             
-        thalach_est = 150
-        if re.search(r"(race|racing|fast|palpitation|pound)", text):
-            thalach_est = 180
+        except Exception as e:
+            st.error("Failed to parse the symptoms. Please try rewording your description.")
+            st.stop()
 
         inputs = {
             'age': age,
@@ -98,19 +113,19 @@ if st.button("Analyze My Symptoms", type="primary"):
             st.subheader("Diagnostic Engine Output")
             if prediction == 1:
                 st.error(f"High Risk Detected ({proba:.1%} Confidence)")
-                st.write("**Next Steps:** Based on your description of chest discomfort, please consult a cardiologist. The system detected potential angina.")
+                st.write("**Next Steps:** Based on your description, please consult a healthcare professional. Potential cardiovascular distress detected.")
             else:
                 st.success(f"Low Risk Detected ({(1 - proba):.1%} Confidence)")
-                st.write("**Next Steps:** Your symptoms do not strongly align with acute cardiovascular disease based on our baselines. Monitor your vitals.")
+                st.write("**Next Steps:** Your symptoms do not strongly align with acute cardiovascular disease baselines. Monitor your vitals.")
                 
-            st.markdown("### How the AI Interpreted Your Text:")
-            st.write(f"- **Chest Pain Type:** {'Typical Angina (High Risk)' if cp == 0 else ('Atypical' if cp == 1 else 'None/Asymptomatic detected')}")
+            st.markdown("### How the LLM Interpreted Your Text:")
+            st.write(f"- **Chest Pain Category:** {cp} (0=Typical, 1=Atypical, 2=Non-Anginal, 3=None)")
             st.write(f"- **Exercise Triggered:** {'Yes' if exang == 1 else 'No'}")
-            st.write(f"- **Heart Rate Flag:** {'Elevated/Racing' if thalach_est == 180 else 'Normal assumed'}")
+            st.write(f"- **Estimated Heart Rate:** {thalach_est} bpm")
             
         with res_col2:
-            st.subheader("Clinical Data Handled Behind the Scenes")
-            st.info("Since you are at home, the AI automatically filled in healthy normal values for clinical tests so the prediction model could run.")
-            st.write("- **Blood Pressure:** Assumed 120 mm Hg (Normal)")
-            st.write("- **Cholesterol:** Assumed 190 mg/dl (Healthy)")
-            st.write("- **ECG & Vessel Scans:** Assumed Clear/Normal")
+            st.subheader("Clinical Baselines Applied")
+            st.info("Missing clinical test data was automatically filled with healthy baselines so the model could execute.")
+            st.write("- **Blood Pressure:** 120 mm Hg")
+            st.write("- **Cholesterol:** 190 mg/dl")
+            st.write("- **ECG & Vessel Scans:** Normal/Clear")
