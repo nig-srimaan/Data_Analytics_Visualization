@@ -54,6 +54,7 @@ if st.button("Analyze My Symptoms", type="primary"):
     else:
         api_key = st.secrets["GEMINI_API_KEY"]
         genai.configure(api_key=api_key)
+        
         generative_model = genai.GenerativeModel('gemini-2.5-flash')
         
         prompt = f"""
@@ -107,7 +108,6 @@ if st.button("Analyze My Symptoms", type="primary"):
             st.subheader("What this means for you")
             
             advice_prompt = f"""
-            You are an empathetic, human health assistant.
             The patient said: "{user_symptoms}"
             The clinical model predicted: {'Elevated Risk of Heart Issues' if prediction == 1 else 'Low Risk of Heart Issues'}.
             
@@ -115,14 +115,18 @@ if st.button("Analyze My Symptoms", type="primary"):
             Paragraph 1: Acknowledge their specific symptoms so they feel heard.
             Paragraph 2: Explain what the result means and whether they should be worried in plain, comforting English.
             Paragraph 3: Give 2-3 practical, actionable pieces of advice for what to do next.
-            
-            Do not use medical jargon. Do not list raw data. Speak to them like a caring human being.
             """
             
             try:
-                advice_response = generative_model.generate_content(advice_prompt)
+                text_model = genai.GenerativeModel('gemini-2.5-flash')
+                advice_response = text_model.generate_content(advice_prompt)
+                
+                if not advice_response.text or advice_response.text.strip() == "":
+                    raise ValueError("Empty response generated")
+                    
                 st.write(advice_response.text)
-            except:
+                
+            except Exception:
                 if prediction == 1:
                     st.write("Your symptoms indicate some elevated cardiovascular risk. Please consult a doctor soon for a professional checkup.")
                 else:
