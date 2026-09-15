@@ -11,39 +11,89 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');
 
-html, body, [class*="css"]  { font-family: 'Inter', sans-serif; }
+html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+    background-color: #F7F8F5 !important;
+    font-family: 'Inter', sans-serif;
+}
+[data-testid="stAppViewContainer"] { color: #20242A; }
 
 h1 {
-    font-family: 'Fraunces', serif;
-    font-weight: 600;
+    font-family: 'Fraunces', serif !important;
+    font-weight: 600 !important;
     letter-spacing: -0.01em;
-    color: #20242A;
+    color: #20242A !important;
 }
+
+p, label, [data-testid="stMarkdownContainer"] { color: #20242A; }
+[data-testid="stCaptionContainer"] { color: #5C6670 !important; }
 
 hr { border: none; border-top: 1px solid #D8DCD5; margin: 1.6rem 0; }
 
+[data-testid="stTextArea"] textarea,
+[data-testid="stNumberInput"] input,
+div[data-baseweb="select"] > div,
+div[data-baseweb="input"] {
+    background-color: #FFFFFF !important;
+    color: #20242A !important;
+    border: 1px solid #D8DCD5 !important;
+}
+
+[data-testid="stForm"] {
+    background-color: #EAEDE8 !important;
+    border: 1px solid #D8DCD5 !important;
+    border-radius: 8px;
+    padding: 1rem 1.2rem 0.2rem 1.2rem;
+}
+
 .stButton > button[kind="primary"] {
-    background-color: #B54A3F;
-    border: none;
+    background-color: #B54A3F !important;
+    color: #F7F8F5 !important;
+    border: none !important;
     border-radius: 6px;
     padding: 0.55rem 1.4rem;
     font-weight: 500;
 }
-.stButton > button[kind="primary"]:hover { background-color: #9A3E34; }
+.stButton > button[kind="primary"]:hover { background-color: #9A3E34 !important; }
 
-.clarify-panel {
-    border-left: 3px solid #B54A3F;
-    padding: 0.9rem 1.2rem;
-    background-color: #EAEDE8;
-    border-radius: 0 6px 6px 0;
-    margin-bottom: 1.2rem;
-}
-
-.risk-panel { border-radius: 10px; padding: 1.8rem 1.6rem; color: #F7F8F5; }
+.risk-panel { border-radius: 10px; padding: 1.8rem 1.6rem; color: #F7F8F5 !important; }
 .risk-elevated { background-color: #B54A3F; }
 .risk-low { background-color: #3E6A57; }
-.risk-number { font-family: 'Fraunces', serif; font-size: 3rem; font-weight: 600; line-height: 1; }
-.risk-label { font-size: 1.05rem; margin-top: 0.3rem; opacity: 0.92; }
+.risk-number { font-family: 'Fraunces', serif; font-size: 3rem; font-weight: 600; line-height: 1; color: #F7F8F5 !important; }
+.risk-label { font-size: 1.05rem; margin-top: 0.3rem; opacity: 0.92; color: #F7F8F5 !important; }
+
+/* --- sidebar / dashboard shell --- */
+[data-testid="stSidebar"] { background-color: #EAEDE8 !important; border-right: 1px solid #D8DCD5; }
+[data-testid="stSidebar"] * { color: #20242A; }
+
+.brand-block { display:flex; align-items:center; gap:0.7rem; margin: 0.4rem 0 1.8rem 0; }
+.brand-mark {
+    width:36px; height:36px; border-radius:8px; background:#B54A3F; color:#F7F8F5;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Fraunces',serif; font-weight:600; font-size:1.1rem; flex-shrink:0;
+}
+.brand-name { font-family:'Fraunces',serif; font-weight:600; font-size:1.05rem; color:#20242A; line-height:1.2; }
+.brand-sub { font-size:0.78rem; color:#5C6670; }
+
+.step-list { margin-bottom: 2rem; }
+.step-item { display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0; }
+.step-dot { width:9px; height:9px; border-radius:50%; background:#C7CCC3; flex-shrink:0; }
+.step-item.done .step-dot { background:#3E6A57; }
+.step-item.active .step-dot { background:#B54A3F; }
+.step-item .step-text { font-size:0.92rem; color:#8A9199; }
+.step-item.active .step-text { color:#20242A; font-weight:600; }
+.step-item.done .step-text { color:#5C6670; }
+
+.sidebar-disclaimer {
+    font-size:0.75rem; color:#8A9199; line-height:1.4;
+    border-top:1px solid #D8DCD5; padding-top:0.9rem; margin-top:1rem;
+}
+
+.stage-sub { color:#5C6670; margin-top:-0.6rem; margin-bottom:0.4rem; }
+
+.stat-chip-row { display:flex; gap:0.7rem; flex-wrap:wrap; margin-top:1.4rem; }
+.stat-chip { background:#EAEDE8; border-radius:8px; padding:0.55rem 0.9rem; min-width:96px; }
+.stat-chip-label { font-size:0.74rem; color:#5C6670; }
+.stat-chip-value { font-size:0.98rem; font-weight:600; color:#20242A; margin-top:0.1rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -198,52 +248,112 @@ def generate_advice(user_symptoms, prediction):
 
 
 # ---------------------------------------------------------------------------
-# 3. UI - three stages, tracked in session_state: input -> clarify -> result
+# 3. UI - dashboard shell (sidebar + one card at a time), three stages
+# tracked in session_state: input -> clarify -> result
 # ---------------------------------------------------------------------------
-st.title("MedExplain: AI-Powered Symptom Checker")
-st.caption(
-    "Educational prototype trained on a small public research dataset. "
-    "This is a screening estimate, not a diagnosis - it doesn't replace seeing a doctor."
-)
+CP_LABELS = {0: "Severe/crushing", 1: "Atypical", 2: "Non-anginal", 3: "None"}
+STAGE_ORDER = ["input", "clarify", "result"]
+STAGE_LABELS = ["Your info & symptoms", "A couple more details", "Your result"]
+STAGE_HEADERS = {
+    "input": ("Tell us how you're feeling", "Answer a couple of questions and describe your symptoms in your own words."),
+    "clarify": ("A couple more details", "The AI couldn't tell these from your description - answer what you can, skip what you don't know."),
+    "result": ("Your result", "Based on what you shared, here's a screening estimate."),
+}
 
 if "stage" not in st.session_state:
     st.session_state.stage = "input"
 
-# ---- Stage 1: symptom input -------------------------------------------------
-col1, col2 = st.columns([1, 2])
-with col1:
-    age = st.number_input("Your Age", min_value=1, max_value=120, value=30)
-    sex_input = st.selectbox("Biological Sex", ["Female", "Male"])
-    sex = 1 if sex_input == "Male" else 0
-with col2:
-    user_symptoms = st.text_area(
-        "Describe your symptoms:",
-        placeholder="E.g., My chest feels really tight when I walk up the stairs and my heart races...",
-        height=150,
-    )
 
-if st.button("Analyze My Symptoms", type="primary"):
-    if not user_symptoms.strip():
-        st.warning("Please describe how you are feeling before analyzing.")
-    else:
-        st.session_state.age = age
-        st.session_state.sex = sex
-        st.session_state.user_symptoms = user_symptoms
-        st.session_state.extracted = extract_symptoms(user_symptoms)
-        st.session_state.stage = "clarify"
+def build_inputs(extracted, age, sex):
+    """Turn extracted/answered fields into a model-ready row. Anything
+    still unknown stays NaN rather than being guessed."""
+    thalach_est = extracted.get("thalach_est")
+    if thalach_est is None:
+        racing = extracted.get("racing_heart")
+        thalach_est = 180 if racing else 150
+    fbs_flag = extracted.get("fbs_flag")
+    fbs = 1 if fbs_flag is True else (0 if fbs_flag is False else np.nan)
+    return {
+        "age": age, "sex": sex, "cp": extracted.get("cp"),
+        "trestbps": extracted.get("trestbps", np.nan) if extracted.get("trestbps") is not None else np.nan,
+        "chol": extracted.get("chol") if extracted.get("chol") is not None else np.nan,
+        "fbs": fbs, "restecg": np.nan, "thalach": thalach_est,
+        "exang": extracted.get("exang"), "oldpeak": np.nan, "slope": np.nan,
+        "ca": np.nan, "thal": np.nan,
+    }
 
-# ---- Stage 2: ask for whatever the LLM couldn't find in the text -----------
-if st.session_state.stage in ("clarify", "result"):
-    extracted = st.session_state.get("extracted", {})
 
-if st.session_state.stage == "clarify":
-    st.markdown("---")
-    st.subheader("A couple more details")
+# ---- Sidebar: branding + step progress -------------------------------------
+with st.sidebar:
     st.markdown(
-        '<div class="clarify-panel">The AI couldn\'t tell these from your description - '
-        'answer what you can, skip what you don\'t know.</div>',
+        '<div class="brand-block"><div class="brand-mark">M</div>'
+        '<div><div class="brand-name">MedExplain</div>'
+        '<div class="brand-sub">Symptom risk screener</div></div></div>',
         unsafe_allow_html=True,
     )
+    current_idx = STAGE_ORDER.index(st.session_state.stage)
+    steps_html = '<div class="step-list">'
+    for i, label in enumerate(STAGE_LABELS):
+        cls = "done" if i < current_idx else ("active" if i == current_idx else "")
+        steps_html += f'<div class="step-item {cls}"><span class="step-dot"></span><span class="step-text">{i + 1}. {label}</span></div>'
+    steps_html += "</div>"
+    st.markdown(steps_html, unsafe_allow_html=True)
+    st.markdown(
+        '<div class="sidebar-disclaimer">Educational prototype trained on a small '
+        'public research dataset. This is a screening estimate, not a diagnosis - '
+        "it doesn't replace seeing a doctor.</div>",
+        unsafe_allow_html=True,
+    )
+
+# ---- Main area: contextual header for the current step ---------------------
+header, sub = STAGE_HEADERS[st.session_state.stage]
+st.markdown(f"<h1>{header}</h1>", unsafe_allow_html=True)
+st.markdown(f'<p class="stage-sub">{sub}</p>', unsafe_allow_html=True)
+
+# ---- Stage 1: symptom input -------------------------------------------------
+if st.session_state.stage == "input":
+    with st.container(border=True):
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            age = st.number_input("Your Age", min_value=1, max_value=120, value=30)
+            sex_input = st.selectbox("Biological Sex", ["Female", "Male"])
+            sex = 1 if sex_input == "Male" else 0
+        with col2:
+            user_symptoms = st.text_area(
+                "Describe your symptoms:",
+                placeholder="E.g., My chest feels really tight when I walk up the stairs and my heart races...",
+                height=150,
+            )
+        analyze_clicked = st.button("Analyze My Symptoms", type="primary")
+
+    if analyze_clicked:
+        if not user_symptoms.strip():
+            st.warning("Please describe how you are feeling before analyzing.")
+        else:
+            st.session_state.age = age
+            st.session_state.sex = sex
+            st.session_state.user_symptoms = user_symptoms
+            extracted = extract_symptoms(user_symptoms)
+            st.session_state.extracted = extracted
+
+            # If the text already gave us the fields that actually drive the
+            # prediction, skip straight to the result instead of showing an
+            # empty clarify step.
+            ready = (
+                extracted.get("cp") is not None
+                and extracted.get("exang") is not None
+                and (extracted.get("thalach_est") is not None or extracted.get("racing_heart") is not None)
+            )
+            if ready:
+                st.session_state.inputs = build_inputs(extracted, age, sex)
+                st.session_state.stage = "result"
+            else:
+                st.session_state.stage = "clarify"
+            st.rerun()
+
+# ---- Stage 2: ask for whatever the LLM couldn't find in the text -----------
+if st.session_state.stage == "clarify":
+    extracted = st.session_state.get("extracted", {})
 
     with st.form("clarify_form"):
         cp = extracted.get("cp")
@@ -308,7 +418,7 @@ if st.session_state.stage == "clarify":
         st.session_state.stage = "result"
         st.rerun()
 
-# ---- Stage 3: prediction + advice ------------------------------------------
+# ---- Stage 3: prediction + advice + at-a-glance stats -----------------------
 if st.session_state.stage == "result":
     inputs = st.session_state.inputs
     patient_df = pd.DataFrame([inputs])[FEATURE_COLUMNS]
@@ -316,29 +426,46 @@ if st.session_state.stage == "result":
     prediction = model.predict(patient_df)[0]
     proba = model.predict_proba(patient_df)[0][1]
 
-    st.markdown("---")
-    res_col1, res_col2 = st.columns([1, 2])
+    with st.container(border=True):
+        res_col1, res_col2 = st.columns([1, 2])
 
-    with res_col1:
-        st.subheader("Clinical Result")
-        if prediction == 1:
-            st.markdown(
-                f'<div class="risk-panel risk-elevated">'
-                f'<div class="risk-number">{proba:.0%}</div>'
-                f'<div class="risk-label">Elevated Risk</div></div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                f'<div class="risk-panel risk-low">'
-                f'<div class="risk-number">{(1 - proba):.0%}</div>'
-                f'<div class="risk-label">Low Risk</div></div>',
-                unsafe_allow_html=True,
-            )
+        with res_col1:
+            st.subheader("Clinical Result")
+            if prediction == 1:
+                st.markdown(
+                    f'<div class="risk-panel risk-elevated">'
+                    f'<div class="risk-number">{proba:.0%}</div>'
+                    f'<div class="risk-label">Elevated Risk</div></div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f'<div class="risk-panel risk-low">'
+                    f'<div class="risk-number">{(1 - proba):.0%}</div>'
+                    f'<div class="risk-label">Low Risk</div></div>',
+                    unsafe_allow_html=True,
+                )
 
-    with res_col2:
-        st.subheader("What this means for you")
-        st.write(generate_advice(st.session_state.user_symptoms, prediction))
+        with res_col2:
+            st.subheader("What this means for you")
+            st.write(generate_advice(st.session_state.user_symptoms, prediction))
+
+        def fmt(val, unit=""):
+            return "Not provided" if val is None or (isinstance(val, float) and np.isnan(val)) else f"{val}{unit}"
+
+        chips = [
+            ("Age", str(inputs["age"])),
+            ("Chest pain", CP_LABELS.get(inputs["cp"], "Unknown")),
+            ("Exertion-triggered", "Yes" if inputs["exang"] == 1 else "No"),
+            ("Est. heart rate", f"{inputs['thalach']} bpm"),
+            ("Resting BP", fmt(inputs["trestbps"], " mmHg")),
+            ("Cholesterol", fmt(inputs["chol"], " mg/dl")),
+        ]
+        chips_html = '<div class="stat-chip-row">'
+        for label, value in chips:
+            chips_html += f'<div class="stat-chip"><div class="stat-chip-label">{label}</div><div class="stat-chip-value">{value}</div></div>'
+        chips_html += "</div>"
+        st.markdown(chips_html, unsafe_allow_html=True)
 
     if st.button("Start Over"):
         for key in ("stage", "extracted", "inputs"):
